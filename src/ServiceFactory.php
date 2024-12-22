@@ -58,7 +58,7 @@ class ServiceFactory
 
     /**
      * Create an instance of a registered service if its condition (if any) is met
-     * 
+     *
      * @throws ServiceNotFoundException
      * @throws ClassNotFoundException
      * @throws \InvalidArgumentException
@@ -75,7 +75,7 @@ class ServiceFactory
             $validator = $this->conditions[$conditionName];
 
             // Evaluate the condition
-            $result = match($validator()) {
+            $result = match ($validator()) {
                 true => true,
                 false => throw new \InvalidArgumentException("Condition not met for service: $serviceName"),
                 default => throw new \InvalidArgumentException("Invalid condition result for service: $serviceName")
@@ -99,7 +99,7 @@ class ServiceFactory
         if (isset($this->serviceConditions[$serviceName])) {
             $conditionName = $this->serviceConditions[$serviceName];
             $validator = $this->conditions[$conditionName];
-            
+
             return (bool) $validator();
         }
 
