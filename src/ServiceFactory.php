@@ -9,7 +9,7 @@ use Ananke\Conditions\CallableCondition;
 
 /**
  * A flexible service container that supports conditional service instantiation.
- * 
+ *
  * This container allows registering services with multiple conditions that must be met
  * before the service can be instantiated. Each service can have zero or more conditions,
  * and all conditions must evaluate to true for the service to be created.

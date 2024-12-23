@@ -26,10 +26,11 @@ class CachedCondition extends AbstractCondition
     public function evaluate(): bool
     {
         $now = time();
-        
+
         // If we have a cached result and it hasn't expired
-        if ($this->cachedResult !== null && 
-            $this->cachedAt !== null && 
+        if (
+            $this->cachedResult !== null &&
+            $this->cachedAt !== null &&
             $now - $this->cachedAt < $this->ttl
         ) {
             return $this->cachedResult;

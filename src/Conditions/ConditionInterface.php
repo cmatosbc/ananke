@@ -4,7 +4,7 @@ namespace Ananke\Conditions;
 
 /**
  * Interface for service conditions.
- * 
+ *
  * Conditions are used to determine whether a service can be instantiated.
  * They can be simple callables or complex compositions using decorators.
  */
