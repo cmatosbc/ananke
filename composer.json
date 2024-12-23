@@ -1,6 +1,7 @@
 {
     "name": "cmatosbc/ananke",
     "type": "library",
+    "description": "A flexible PHP service container that supports conditional service instantiation, relying on PHP 8+ match expression.",
     "license": "gpl-3.0-or-later",
     "authors": [
         {
