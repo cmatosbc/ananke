@@ -13,7 +13,7 @@ class ServiceFactory
     /** @var array<string, callable> Condition name to validation function mapping */
     private array $conditions = [];
 
-    /** @var array<string, string> Service name to condition name mapping */
+    /** @var array<string, array<string>> Service name to condition names mapping */
     private array $serviceConditions = [];
 
     /** @var array<string, array> Service name to constructor parameters mapping */
@@ -53,11 +53,35 @@ class ServiceFactory
             throw new \InvalidArgumentException("Condition not found: $conditionName");
         }
 
-        $this->serviceConditions[$serviceName] = $conditionName;
+        $this->serviceConditions[$serviceName][] = $conditionName;
     }
 
     /**
-     * Create an instance of a registered service if its condition (if any) is met
+     * Evaluates all conditions for a service
+     * 
+     * @throws \InvalidArgumentException When a condition is not met
+     */
+    private function evaluateConditions(string $serviceName): \Generator
+    {
+        if (!isset($this->serviceConditions[$serviceName])) {
+            yield true;
+            return;
+        }
+
+        foreach ($this->serviceConditions[$serviceName] as $conditionName) {
+            $validator = $this->conditions[$conditionName];
+            $result = $validator();
+
+            yield match ($result) {
+                true => true,
+                false => throw new \InvalidArgumentException("Condition '$conditionName' not met for service: $serviceName"),
+                default => throw new \InvalidArgumentException("Invalid result for condition '$conditionName' on service: $serviceName")
+            };
+        }
+    }
+
+    /**
+     * Create an instance of a registered service if all its conditions are met
      *
      * @throws ServiceNotFoundException
      * @throws ClassNotFoundException
@@ -69,17 +93,10 @@ class ServiceFactory
             throw new ServiceNotFoundException("Service not found: $serviceName");
         }
 
-        // Check if service has an associated condition
-        if (isset($this->serviceConditions[$serviceName])) {
-            $conditionName = $this->serviceConditions[$serviceName];
-            $validator = $this->conditions[$conditionName];
-
-            // Evaluate the condition
-            $result = match ($validator()) {
-                true => true,
-                false => throw new \InvalidArgumentException("Condition not met for service: $serviceName"),
-                default => throw new \InvalidArgumentException("Invalid condition result for service: $serviceName")
-            };
+        // Evaluate all conditions
+        foreach ($this->evaluateConditions($serviceName) as $result) {
+            // Just iterate through all conditions
+            // Any failed condition will throw an exception
         }
 
         $className = $this->services[$serviceName];
@@ -87,7 +104,7 @@ class ServiceFactory
     }
 
     /**
-     * Check if a service exists and its condition (if any) is met
+     * Check if a service exists and all its conditions are met
      */
     public function has(string $serviceName): bool
     {
@@ -95,14 +112,16 @@ class ServiceFactory
             return false;
         }
 
-        // If service has a condition, check if it's met
-        if (isset($this->serviceConditions[$serviceName])) {
-            $conditionName = $this->serviceConditions[$serviceName];
-            $validator = $this->conditions[$conditionName];
-
-            return (bool) $validator();
+        // Check all conditions
+        try {
+            foreach ($this->evaluateConditions($serviceName) as $result) {
+                if (!$result) {
+                    return false;
+                }
+            }
+            return true;
+        } catch (\InvalidArgumentException $e) {
+            return false;
         }
-
-        return true;
     }
 }

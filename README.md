@@ -1,14 +1,14 @@
 # Ananke
 
-A flexible PHP service container that supports conditional service instantiation. This package allows you to register services with conditions that must be met before the service can be instantiated.
+A flexible PHP service container that supports conditional service instantiation. This package allows you to register services with multiple conditions that must be met before the service can be instantiated.
 
 ## Features
 
-- **Service Registration**: Register classes with their dependencies and constructor parameters
-- **Conditional Creation**: Define conditions that must be met before services can be instantiated
-- **Flexible Conditions**: Use any callable that returns a boolean as a condition
-- **Runtime Validation**: Services are only created when their conditions are satisfied
-- **Type Safety**: Full PHP 8.0+ type hints and return type declarations
+- Register services with their class names and constructor parameters
+- Define conditions as callable functions
+- Associate multiple conditions with services
+- Dynamic service instantiation based on condition evaluation
+- Clear error handling with specific exceptions
 
 ## Installation
 
@@ -26,15 +26,41 @@ $factory = new ServiceFactory();
 // Register a service with constructor parameters
 $factory->register('logger', Logger::class, ['debug']);
 
-// Register a condition
+// Register conditions
 $factory->registerCondition('is-development', fn() => getenv('APP_ENV') === 'development');
+$factory->registerCondition('has-permissions', fn() => is_writable('/var/log'));
 
-// Associate condition with service
+// Associate multiple conditions with service
 $factory->associateCondition('logger', 'is-development');
+$factory->associateCondition('logger', 'has-permissions');
 
-// Create service (only works in development)
+// Create service (only works if ALL conditions are met)
 if ($factory->has('logger')) {
     $logger = $factory->create('logger');
+}
+```
+
+## Multiple Conditions
+
+Services can have multiple conditions that must ALL be satisfied before instantiation:
+
+```php
+// Premium feature example
+$factory->register('premium.feature', PremiumFeature::class);
+
+// Register all required conditions
+$factory->registerCondition('is-premium-user', fn() => $user->hasPremiumSubscription());
+$factory->registerCondition('feature-enabled', fn() => $featureFlags->isEnabled('new-feature'));
+$factory->registerCondition('has-valid-license', fn() => $license->isValid());
+
+// Associate ALL conditions with the service
+$factory->associateCondition('premium.feature', 'is-premium-user');
+$factory->associateCondition('premium.feature', 'feature-enabled');
+$factory->associateCondition('premium.feature', 'has-valid-license');
+
+// Service will only be created if ALL conditions are met
+if ($factory->has('premium.feature')) {
+    $feature = $factory->create('premium.feature');
 }
 ```
 
@@ -42,121 +68,64 @@ if ($factory->has('logger')) {
 
 ### 1. Environment-Specific Services
 
-Control which services are available based on the application environment:
+Control debug tools based on environment:
 
 ```php
-// Register services
-$factory->register('debugbar', DebugBar::class);
-$factory->register('profiler', Profiler::class);
-$factory->register('logger', VerboseLogger::class);
-
-// Register environment condition
-$factory->registerCondition('is-development', function() {
-    return getenv('APP_ENV') === 'development';
-});
-
-// Only allow debug tools in development
-$factory->associateCondition('debugbar', 'is-development');
-$factory->associateCondition('profiler', 'is-development');
-$factory->associateCondition('logger', 'is-development');
-
-// In production, these won't be created
-$debugbar = $factory->create('debugbar'); // Throws exception in production
+$factory->register('debugger', Debugger::class);
+$factory->registerCondition('is-development', fn() => getenv('APP_ENV') === 'development');
+$factory->registerCondition('debug-enabled', fn() => getenv('APP_DEBUG') === 'true');
+$factory->associateCondition('debugger', 'is-development');
+$factory->associateCondition('debugger', 'debug-enabled');
 ```
 
 ### 2. Feature Flags and A/B Testing
 
-Implement feature flags or A/B testing by conditionally creating different service implementations:
+Implement feature toggles with multiple conditions:
 
 ```php
-// Register different UI implementations
-$factory->register('checkout.old', OldCheckoutProcess::class);
-$factory->register('checkout.new', NewCheckoutProcess::class);
-
-// Register feature flag condition
-$factory->registerCondition('new-checkout-enabled', function() {
-    return FeatureFlags::isEnabled('new-checkout') || 
-           ABTest::userInGroup('new-checkout');
-});
-
-// Use new checkout only when feature is enabled
-$factory->associateCondition('checkout.new', 'new-checkout-enabled');
-
-// Get appropriate checkout implementation
-$checkout = $factory->has('checkout.new') 
-    ? $factory->create('checkout.new')
-    : $factory->create('checkout.old');
+$factory->register('new.ui', NewUIComponent::class);
+$factory->registerCondition('feature-enabled', fn() => $featureFlags->isEnabled('new-ui'));
+$factory->registerCondition('in-test-group', fn() => $abTest->isInGroup('new-ui-test'));
+$factory->registerCondition('supported-browser', fn() => $browser->supportsFeature('grid-layout'));
+$factory->associateCondition('new.ui', 'feature-enabled');
+$factory->associateCondition('new.ui', 'in-test-group');
+$factory->associateCondition('new.ui', 'supported-browser');
 ```
 
 ### 3. Database Connection Management
 
-Ensure database-dependent services are only created when a connection is available:
+Safe handling of database-dependent services:
 
 ```php
-// Register database-dependent services
 $factory->register('user.repository', UserRepository::class);
-$factory->register('order.repository', OrderRepository::class);
-$factory->register('cache.database', DatabaseCache::class);
-
-// Register connection checker
-$factory->registerCondition('db-connected', function() {
-    try {
-        return Database::getInstance()->isConnected();
-    } catch (ConnectionException $e) {
-        return false;
-    }
-});
-
-// Ensure repositories only work with database connection
+$factory->registerCondition('db-connected', fn() => $database->isConnected());
+$factory->registerCondition('db-migrated', fn() => $database->isMigrated());
+$factory->registerCondition('has-permissions', fn() => $database->hasPermissions('users'));
 $factory->associateCondition('user.repository', 'db-connected');
-$factory->associateCondition('order.repository', 'db-connected');
-$factory->associateCondition('cache.database', 'db-connected');
-
-// Safely create repository
-if ($factory->has('user.repository')) {
-    $users = $factory->create('user.repository');
-} else {
-    // Fall back to offline mode or throw exception
-}
+$factory->associateCondition('user.repository', 'db-migrated');
+$factory->associateCondition('user.repository', 'has-permissions');
 ```
 
 ### 4. License-Based Feature Access
 
-Control access to premium features based on user licenses:
+Control access to premium features:
 
 ```php
-// Register feature implementations
-$factory->register('export.basic', BasicExporter::class);
-$factory->register('export.advanced', AdvancedExporter::class);
-$factory->register('report.generator', ReportGenerator::class);
-$factory->register('ai.assistant', AIAssistant::class);
-
-// Register license checker
-$factory->registerCondition('has-premium', function() {
-    return License::getCurrentPlan()->isPremium();
-});
-
-$factory->registerCondition('has-enterprise', function() {
-    return License::getCurrentPlan()->isEnterprise();
-});
-
-// Associate features with license levels
-$factory->associateCondition('export.advanced', 'has-premium');
-$factory->associateCondition('report.generator', 'has-premium');
-$factory->associateCondition('ai.assistant', 'has-enterprise');
-
-// Create appropriate exporter based on license
-$exporter = $factory->has('export.advanced')
-    ? $factory->create('export.advanced')
-    : $factory->create('export.basic');
+$factory->register('premium.api', PremiumAPIClient::class);
+$factory->registerCondition('has-license', fn() => $license->isValid());
+$factory->registerCondition('within-quota', fn() => $usage->isWithinQuota());
+$factory->registerCondition('api-available', fn() => $api->isAvailable());
+$factory->associateCondition('premium.api', 'has-license');
+$factory->associateCondition('premium.api', 'within-quota');
+$factory->associateCondition('premium.api', 'api-available');
 ```
 
 ## Error Handling
 
-The factory throws different exceptions based on the error:
+The service container throws specific exceptions:
 
-- `ServiceNotFoundException`: When trying to create a non-existent service
-- `ClassNotFoundException`: When the service class doesn't exist
+- `ServiceNotFoundException`: When trying to create a non-registered service
+- `ClassNotFoundException`: When registering a service with a non-existent class
 - `InvalidArgumentException`: When a condition is not met or invalid
 
 ## Testing
@@ -164,7 +133,22 @@ The factory throws different exceptions based on the error:
 Run the test suite:
 
 ```bash
-vendor/bin/phpunit
+composer test
+```
+
+The tests provide detailed output showing the state of conditions and service creation:
+
+```
+🧪 Test: Multiple Conditions
+    ✅ Registered premium feature service
+    ✅ Registered all conditions
+    
+    📊 Current State:
+       • Premium Status: ✅
+       • Feature Flag: ✅
+       • Valid License: ❌
+    ℹ️  Testing with incomplete conditions
+    ✅ Verified feature is not available
 ```
 
 ## Contributing
@@ -173,4 +157,4 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-This package is open-sourced software licensed under the MIT license.
+This project is licensed under the GPL-3.0-or-later License - see the LICENSE file for details.

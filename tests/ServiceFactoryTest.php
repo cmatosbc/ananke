@@ -7,147 +7,186 @@ use Ananke\Exceptions\ServiceNotFoundException;
 use Ananke\Exceptions\ClassNotFoundException;
 use PHPUnit\Framework\TestCase;
 
-class Logger {
-    private string $level;
+class PremiumFeature {
+    private bool $enabled;
     
-    public function __construct(string $level = 'info') {
-        $this->level = $level;
-        printf("\n    Created Logger with level: %s", $level);
+    public function __construct(bool $enabled = true) {
+        $this->enabled = $enabled;
+        printf("\n    Created PremiumFeature (enabled: %s)", $enabled ? 'yes' : 'no');
     }
     
-    public function getLevel(): string {
-        return $this->level;
-    }
-}
-
-class Database {
-    private bool $isConnected = false;
-    
-    public function __construct() {
-        printf("\n    Created Database instance");
-    }
-    
-    public function connect(): void {
-        $this->isConnected = true;
-    }
-    
-    public function isConnected(): bool {
-        return $this->isConnected;
+    public function isEnabled(): bool {
+        return $this->enabled;
     }
 }
 
 class ServiceFactoryTest extends TestCase
 {
     private ServiceFactory $factory;
-    private bool $isDevelopment = true;
-    private bool $isDbConnected = false;
+    private bool $isPremium = false;
+    private bool $isFeatureEnabled = false;
+    private bool $hasValidLicense = false;
 
     protected function setUp(): void
     {
         $this->factory = new ServiceFactory();
-        printf("\n\nSetting up new ServiceFactory instance");
+        printf("\n\n🏭 Setting up new test case");
+    }
+
+    private function printConditionState(string $message): void
+    {
+        printf("\n    📊 Current State:");
+        printf("\n       • Premium Status: %s", $this->isPremium ? '✅' : '❌');
+        printf("\n       • Feature Flag: %s", $this->isFeatureEnabled ? '✅' : '❌');
+        printf("\n       • Valid License: %s", $this->hasValidLicense ? '✅' : '❌');
+        if ($message) {
+            printf("\n    ℹ️  %s", $message);
+        }
     }
 
     /**
      * @test
      */
-    public function itShouldRegisterAndCreateServices(): void
+    public function itShouldRegisterAndCreateBasicServices(): void
     {
-        printf("\n\nTesting basic service registration");
+        printf("\n\n🧪 Test: Basic Service Registration");
+        
+        // Register a simple service
+        $this->factory->register('feature', PremiumFeature::class, [true]);
+        printf("\n    ✅ Registered basic feature service");
 
-        // Register services with different parameters
-        $this->factory->register('logger.debug', Logger::class, ['debug']);
-        $this->factory->register('logger.error', Logger::class, ['error']);
-        printf("\n    Registered logger services with different levels");
-
-        // Create and verify instances
-        $debugLogger = $this->factory->create('logger.debug');
-        $this->assertInstanceOf(Logger::class, $debugLogger);
-        $this->assertEquals('debug', $debugLogger->getLevel());
-        printf("\n    Successfully created debug logger");
-
-        $errorLogger = $this->factory->create('logger.error');
-        $this->assertInstanceOf(Logger::class, $errorLogger);
-        $this->assertEquals('error', $errorLogger->getLevel());
-        printf("\n    Successfully created error logger");
+        // Create and verify instance
+        $feature = $this->factory->create('feature');
+        $this->assertInstanceOf(PremiumFeature::class, $feature);
+        $this->assertTrue($feature->isEnabled());
+        printf("\n    ✨ Successfully created basic feature without conditions");
     }
 
     /**
      * @test
      */
-    public function itShouldRegisterAndValidateConditions(): void
+    public function itShouldHandleMultipleConditions(): void
     {
-        printf("\n\nTesting condition registration");
+        printf("\n\n🧪 Test: Multiple Conditions");
 
-        // Register conditions
-        $this->factory->registerCondition('dev-only', fn() => $this->isDevelopment);
-        $this->factory->registerCondition('db-connected', fn() => $this->isDbConnected);
-        printf("\n    Registered development and database conditions");
+        // Register service
+        $this->factory->register('premium.feature', PremiumFeature::class, [true]);
+        printf("\n    ✅ Registered premium feature service");
 
-        // Register services
-        $this->factory->register('logger.debug', Logger::class, ['debug']);
-        $this->factory->register('database', Database::class);
-        printf("\n    Registered services");
+        // Register all conditions
+        $this->factory->registerCondition('is-premium', fn() => $this->isPremium);
+        $this->factory->registerCondition('feature-enabled', fn() => $this->isFeatureEnabled);
+        $this->factory->registerCondition('has-license', fn() => $this->hasValidLicense);
+        printf("\n    ✅ Registered all conditions");
 
-        // Associate conditions
-        $this->factory->associateCondition('logger.debug', 'dev-only');
-        $this->factory->associateCondition('database', 'db-connected');
-        printf("\n    Associated conditions with services");
+        // Associate all conditions
+        $this->factory->associateCondition('premium.feature', 'is-premium');
+        $this->factory->associateCondition('premium.feature', 'feature-enabled');
+        $this->factory->associateCondition('premium.feature', 'has-license');
+        printf("\n    ✅ Associated all conditions with premium feature");
 
-        // Test dev-only condition (should succeed)
-        $this->assertTrue($this->factory->has('logger.debug'), 'Debug logger should be available in development');
-        $debugLogger = $this->factory->create('logger.debug');
-        $this->assertInstanceOf(Logger::class, $debugLogger);
-        printf("\n    Successfully created dev-only logger");
+        // Test: No conditions met
+        $this->printConditionState("Testing with no conditions met");
+        $this->assertFalse(
+            $this->factory->has('premium.feature'),
+            'Feature should not be available when no conditions are met'
+        );
+        printf("\n    ✅ Verified feature is not available with no conditions met");
 
-        // Test db-connected condition (should fail)
-        $this->assertFalse($this->factory->has('database'), 'Database should not be available when disconnected');
-        $this->expectException(\InvalidArgumentException::class);
-        printf("\n    Attempting to create database instance (should fail)...");
-        $this->factory->create('database');
+        // Test: Only premium status
+        $this->isPremium = true;
+        $this->printConditionState("Testing with only premium status");
+        $this->assertFalse(
+            $this->factory->has('premium.feature'),
+            'Feature should not be available with only premium status'
+        );
+        printf("\n    ✅ Verified feature is not available with only premium status");
+
+        // Test: Premium status and feature flag
+        $this->isFeatureEnabled = true;
+        $this->printConditionState("Testing with premium status and feature flag");
+        $this->assertFalse(
+            $this->factory->has('premium.feature'),
+            'Feature should not be available without license'
+        );
+        printf("\n    ✅ Verified feature is not available without license");
+
+        // Test: All conditions met
+        $this->hasValidLicense = true;
+        $this->printConditionState("Testing with all conditions met");
+        $this->assertTrue(
+            $this->factory->has('premium.feature'),
+            'Feature should be available when all conditions are met'
+        );
+        printf("\n    ✅ Verified feature is available with all conditions met");
+
+        // Test: Create instance with all conditions met
+        printf("\n    🔨 Creating feature instance...");
+        $feature = $this->factory->create('premium.feature');
+        $this->assertInstanceOf(PremiumFeature::class, $feature);
+        $this->assertTrue($feature->isEnabled());
+        printf("\n    ✨ Successfully created feature instance");
+
+        // Test: Failure when one condition becomes false
+        $this->isFeatureEnabled = false;
+        $this->printConditionState("Testing after disabling feature flag");
+        $this->assertFalse(
+            $this->factory->has('premium.feature'),
+            'Feature should not be available when any condition fails'
+        );
+        printf("\n    ✅ Verified feature is not available after condition failure");
+        
+        // Test: Exception when creating with failed condition
+        printf("\n    ⚠️  Attempting to create feature with failed condition...");
+        try {
+            $this->factory->create('premium.feature');
+            $this->fail('Expected InvalidArgumentException was not thrown');
+        } catch (\InvalidArgumentException $e) {
+            $this->assertEquals(
+                "Condition 'feature-enabled' not met for service: premium.feature",
+                $e->getMessage()
+            );
+            printf("\n    ✅ Correctly caught exception: %s", $e->getMessage());
+        }
     }
 
     /**
      * @test
      */
-    public function itShouldRespectConditionsForServiceCreation(): void
+    public function itShouldHandleServiceNotFound(): void
     {
-        printf("\n\nTesting condition-based service creation");
-
-        // Register service and condition
-        $this->factory->register('database', Database::class);
-        $this->factory->registerCondition('db-connected', fn() => $this->isDbConnected);
-        $this->factory->associateCondition('database', 'db-connected');
-        printf("\n    Registered database service with connection condition");
-
-        // Try to create when condition is false
-        $this->assertFalse($this->factory->has('database'), 'Database should not be available when disconnected');
-        printf("\n    Verified database is not available when disconnected");
-
-        // Change condition to true
-        $this->isDbConnected = true;
-        printf("\n    Connected to database");
-
-        // Try to create when condition is true
-        $this->assertTrue($this->factory->has('database'), 'Database should be available when connected');
-        $db = $this->factory->create('database');
-        $this->assertInstanceOf(Database::class, $db);
-        printf("\n    Successfully created database instance after connecting");
-    }
-
-    /**
-     * @test
-     */
-    public function itShouldHandleErrorsGracefully(): void
-    {
-        printf("\n\nTesting error handling");
-
-        // Test non-existent service
-        $this->assertFalse($this->factory->has('non.existent'));
-        printf("\n    Verified non-existent service is not available");
-
+        printf("\n\n🧪 Test: Service Not Found");
+        
+        printf("\n    ⚠️  Attempting to create non-existent service...");
         $this->expectException(ServiceNotFoundException::class);
-        printf("\n    Attempting to create non-existent service...");
         $this->factory->create('non.existent');
+    }
+
+    /**
+     * @test
+     */
+    public function itShouldHandleClassNotFound(): void
+    {
+        printf("\n\n🧪 Test: Class Not Found");
+        
+        printf("\n    ⚠️  Attempting to register non-existent class...");
+        $this->expectException(ClassNotFoundException::class);
+        $this->factory->register('invalid', 'NonExistentClass');
+    }
+
+    /**
+     * @test
+     */
+    public function itShouldHandleInvalidCondition(): void
+    {
+        printf("\n\n🧪 Test: Invalid Condition");
+        
+        // Register service
+        $this->factory->register('feature', PremiumFeature::class);
+        printf("\n    ✅ Registered feature service");
+
+        printf("\n    ⚠️  Attempting to associate non-existent condition...");
+        $this->expectException(\InvalidArgumentException::class);
+        $this->factory->associateCondition('feature', 'non-existent-condition');
     }
 }
