@@ -1,5 +1,7 @@
 # Ananke
 
+[![PHP Lint](https://github.com/cmatosbc/ananke/actions/workflows/lint.yml/badge.svg)](https://github.com/cmatosbc/ananke/actions/workflows/lint.yml) [![PHPUnit Tests](https://github.com/cmatosbc/ananke/actions/workflows/phpunit.yml/badge.svg)](https://github.com/cmatosbc/ananke/actions/workflows/phpunit.yml) [![PHP Composer](https://github.com/cmatosbc/ananke/actions/workflows/composer.yml/badge.svg)](https://github.com/cmatosbc/ananke/actions/workflows/composer.yml)
+
 A flexible PHP service container that supports conditional service instantiation. This package allows you to register services with multiple conditions that must be met before the service can be instantiated.
 
 ## Features
