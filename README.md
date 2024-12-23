@@ -1,8 +1,12 @@
 # Ananke
 
-[![PHP Lint](https://github.com/cmatosbc/ananke/actions/workflows/lint.yml/badge.svg)](https://github.com/cmatosbc/ananke/actions/workflows/lint.yml) [![PHPUnit Tests](https://github.com/cmatosbc/ananke/actions/workflows/phpunit.yml/badge.svg)](https://github.com/cmatosbc/ananke/actions/workflows/phpunit.yml) [![PHP Composer](https://github.com/cmatosbc/ananke/actions/workflows/composer.yml/badge.svg)](https://github.com/cmatosbc/ananke/actions/workflows/composer.yml)
+[![PHP Lint](https://github.com/cmatosbc/ananke/actions/workflows/lint.yml/badge.svg)](https://github.com/cmatosbc/ananke/actions/workflows/lint.yml) [![PHPUnit Tests](https://github.com/cmatosbc/ananke/actions/workflows/phpunit.yml/badge.svg)](https://github.com/cmatosbc/ananke/actions/workflows/phpunit.yml) [![PHP Composer](https://github.com/cmatosbc/ananke/actions/workflows/composer.yml/badge.svg)](https://github.com/cmatosbc/ananke/actions/workflows/composer.yml) [![Latest Stable Version](http://poser.pugx.org/cmatosbc/ananke/v)](https://packagist.org/packages/cmatosbc/ananke) [![License](http://poser.pugx.org/cmatosbc/ananke/license)](https://packagist.org/packages/cmatosbc/ananke)
 
 A flexible PHP service container that supports conditional service instantiation. This package allows you to register services with multiple conditions that must be met before the service can be instantiated.
+
+## Requirements
+
+- PHP 8.0 or higher
 
 ## Features
 
@@ -65,6 +69,126 @@ if ($factory->has('premium.feature')) {
     $feature = $factory->create('premium.feature');
 }
 ```
+
+## Condition Decorators
+
+Ananke provides a powerful set of condition decorators that allow you to compose complex condition logic:
+
+### Not Condition
+
+Negate any condition:
+
+```php
+use Ananke\Conditions\{NotCondition, CallableCondition};
+
+// Basic condition
+$factory->registerCondition('is-maintenance', 
+    new CallableCondition('is-maintenance', fn() => $maintenance->isActive()));
+
+// Negate it
+$factory->registerCondition('not-maintenance',
+    new NotCondition($factory->getCondition('is-maintenance')));
+
+// Use in service
+$factory->register('api', APIService::class);
+$factory->associateCondition('api', 'not-maintenance');
+```
+
+### Cached Condition
+
+Cache expensive condition evaluations:
+
+```php
+use Ananke\Conditions\CachedCondition;
+
+// Cache an expensive API check for 1 hour
+$factory->registerCondition('api-status',
+    new CachedCondition(
+        new CallableCondition('api-check', fn() => $api->checkStatus()),
+        3600 // Cache for 1 hour
+    ));
+```
+
+### AND/OR Conditions
+
+Combine multiple conditions with logical operators:
+
+```php
+use Ananke\Conditions\{AndCondition, OrCondition};
+
+// Premium access: User must be premium OR have a trial subscription
+$factory->registerCondition('can-access-premium',
+    new OrCondition([
+        new CallableCondition('is-premium', fn() => $user->isPremium()),
+        new CallableCondition('has-trial', fn() => $user->hasTrial())
+    ]));
+
+// Database write: Need both connection AND proper permissions
+$factory->registerCondition('can-write-db',
+    new AndCondition([
+        new CallableCondition('is-connected', fn() => $db->isConnected()),
+        new CallableCondition('has-permissions', fn() => $user->canWrite())
+    ]));
+```
+
+### Complex Condition Compositions
+
+Combine decorators for complex logic:
+
+```php
+// ((isPremium OR hasTrial) AND notMaintenance) AND (hasQuota OR isUnlimited)
+$factory->registerCondition('can-use-service',
+    new AndCondition([
+        // Premium access check
+        new OrCondition([
+            new CallableCondition('premium', fn() => $user->isPremium()),
+            new CallableCondition('trial', fn() => $user->hasTrial())
+        ]),
+        // Not in maintenance
+        new NotCondition(
+            new CallableCondition('maintenance', fn() => $maintenance->isActive())
+        ),
+        // Resource availability
+        new OrCondition([
+            new CallableCondition('has-quota', fn() => $user->hasQuota()),
+            new CallableCondition('unlimited', fn() => $user->isUnlimited())
+        ])
+    ])
+);
+
+// Cache the entire complex condition
+$factory->registerCondition('cached-access-check',
+    new CachedCondition(
+        $factory->getCondition('can-use-service'),
+        300 // Cache for 5 minutes
+    )
+);
+```
+
+### Best Practices
+
+1. **Caching**: Use `CachedCondition` for:
+   - External API calls
+   - Database queries
+   - File system checks
+   - Any expensive operations
+
+2. **Composition**: Build complex conditions gradually:
+   - Start with simple conditions
+   - Combine them using AND/OR
+   - Add negation where needed
+   - Cache at appropriate levels
+
+3. **Naming**: Use clear, descriptive names:
+   - Negated: prefix with 'not-'
+   - Cached: prefix with 'cached-'
+   - Combined: use descriptive action names
+
+4. **Testing**: Test complex conditions thoroughly:
+   - Verify each sub-condition
+   - Test boundary cases
+   - Ensure proper short-circuit evaluation
+   - Validate cache behavior
 
 ## Real-World Use Cases
 

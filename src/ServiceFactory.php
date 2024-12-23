@@ -4,13 +4,22 @@ namespace Ananke;
 
 use Ananke\Exceptions\ServiceNotFoundException;
 use Ananke\Exceptions\ClassNotFoundException;
+use Ananke\Conditions\ConditionInterface;
+use Ananke\Conditions\CallableCondition;
 
+/**
+ * A flexible service container that supports conditional service instantiation.
+ * 
+ * This container allows registering services with multiple conditions that must be met
+ * before the service can be instantiated. Each service can have zero or more conditions,
+ * and all conditions must evaluate to true for the service to be created.
+ */
 class ServiceFactory
 {
     /** @var array<string, string> Service name to class name mapping */
     private array $services = [];
 
-    /** @var array<string, callable> Condition name to validation function mapping */
+    /** @var array<string, ConditionInterface> Condition name to condition object mapping */
     private array $conditions = [];
 
     /** @var array<string, array<string>> Service name to condition names mapping */
@@ -20,7 +29,12 @@ class ServiceFactory
     private array $parameters = [];
 
     /**
-     * Register a service with its class name and optional parameters
+     * Register a service with its class name and optional parameters.
+     *
+     * @param string $serviceName Unique identifier for the service
+     * @param string $className Fully qualified class name that exists
+     * @param array $parameters Optional constructor parameters for the service
+     * @throws ClassNotFoundException When the class does not exist
      */
     public function register(string $serviceName, string $className, array $parameters = []): void
     {
@@ -33,15 +47,30 @@ class ServiceFactory
     }
 
     /**
-     * Register a condition with a validation function
+     * Register a condition with a validation function or condition object.
+     *
+     * @param string $conditionName Unique identifier for the condition
+     * @param callable|ConditionInterface $validator Function that returns bool when condition is evaluated
      */
-    public function registerCondition(string $conditionName, callable $validator): void
+    public function registerCondition(string $conditionName, callable|ConditionInterface $validator): void
     {
-        $this->conditions[$conditionName] = $validator;
+        if ($validator instanceof ConditionInterface) {
+            $this->conditions[$conditionName] = $validator;
+        } else {
+            $this->conditions[$conditionName] = new CallableCondition($conditionName, $validator);
+        }
     }
 
     /**
-     * Associate a condition with a service
+     * Associate a condition with a service.
+     *
+     * Multiple conditions can be associated with the same service. All conditions
+     * must evaluate to true for the service to be created.
+     *
+     * @param string $serviceName Name of a registered service
+     * @param string $conditionName Name of a registered condition
+     * @throws ServiceNotFoundException When service is not registered
+     * @throws \InvalidArgumentException When condition is not registered
      */
     public function associateCondition(string $serviceName, string $conditionName): void
     {
@@ -57,9 +86,11 @@ class ServiceFactory
     }
 
     /**
-     * Evaluates all conditions for a service
+     * Evaluates all conditions for a service.
      *
-     * @throws \InvalidArgumentException When a condition is not met
+     * @param string $serviceName Name of the service to evaluate conditions for
+     * @throws \InvalidArgumentException When a condition is not met or returns invalid result
+     * @return \Generator<bool> Yields true for each satisfied condition
      */
     private function evaluateConditions(string $serviceName): \Generator
     {
@@ -69,8 +100,8 @@ class ServiceFactory
         }
 
         foreach ($this->serviceConditions[$serviceName] as $conditionName) {
-            $validator = $this->conditions[$conditionName];
-            $result = $validator();
+            $condition = $this->conditions[$conditionName];
+            $result = $condition->evaluate();
 
             yield match ($result) {
                 true => true,
@@ -85,11 +116,12 @@ class ServiceFactory
     }
 
     /**
-     * Create an instance of a registered service if all its conditions are met
+     * Create an instance of a registered service if all its conditions are met.
      *
-     * @throws ServiceNotFoundException
-     * @throws ClassNotFoundException
-     * @throws \InvalidArgumentException
+     * @param string $serviceName Name of the service to create
+     * @throws ServiceNotFoundException When service is not registered
+     * @throws \InvalidArgumentException When any condition is not met
+     * @return object Instance of the requested service
      */
     public function create(string $serviceName): object
     {
@@ -108,7 +140,10 @@ class ServiceFactory
     }
 
     /**
-     * Check if a service exists and all its conditions are met
+     * Check if a service exists and all its conditions are met.
+     *
+     * @param string $serviceName Name of the service to check
+     * @return bool True if service exists and all conditions are met
      */
     public function has(string $serviceName): bool
     {
