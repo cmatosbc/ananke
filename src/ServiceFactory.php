@@ -58,7 +58,7 @@ class ServiceFactory
 
     /**
      * Evaluates all conditions for a service
-     * 
+     *
      * @throws \InvalidArgumentException When a condition is not met
      */
     private function evaluateConditions(string $serviceName): \Generator
@@ -74,8 +74,12 @@ class ServiceFactory
 
             yield match ($result) {
                 true => true,
-                false => throw new \InvalidArgumentException("Condition '$conditionName' not met for service: $serviceName"),
-                default => throw new \InvalidArgumentException("Invalid result for condition '$conditionName' on service: $serviceName")
+                false => throw new \InvalidArgumentException(
+                    "Condition '$conditionName' not met for service: $serviceName"
+                ),
+                default => throw new \InvalidArgumentException(
+                    "Invalid result for condition '$conditionName' on service: $serviceName"
+                )
             };
         }
     }
