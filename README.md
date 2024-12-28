@@ -1,6 +1,6 @@
 # Ananke
 
-[![PHP Lint](https://github.com/cmatosbc/ananke/actions/workflows/lint.yml/badge.svg)](https://github.com/cmatosbc/ananke/actions/workflows/lint.yml) [![PHPUnit Tests](https://github.com/cmatosbc/ananke/actions/workflows/phpunit.yml/badge.svg)](https://github.com/cmatosbc/ananke/actions/workflows/phpunit.yml) [![PHP Composer](https://github.com/cmatosbc/ananke/actions/workflows/composer.yml/badge.svg)](https://github.com/cmatosbc/ananke/actions/workflows/composer.yml) [![Latest Stable Version](http://poser.pugx.org/cmatosbc/ananke/v)](https://packagist.org/packages/cmatosbc/ananke) [![License](http://poser.pugx.org/cmatosbc/ananke/license)](https://packagist.org/packages/cmatosbc/ananke)
+[![PHP Lint](https://github.com/cmatosbc/ananke/actions/workflows/lint.yml/badge.svg)](https://github.com/cmatosbc/ananke/actions/workflows/lint.yml) [![PHPUnit Tests](https://github.com/cmatosbc/ananke/actions/workflows/phpunit.yml/badge.svg)](https://github.com/cmatosbc/ananke/actions/workflows/phpunit.yml) [![PHP Composer](https://github.com/cmatosbc/ananke/actions/workflows/composer.yml/badge.svg)](https://github.com/cmatosbc/ananke/actions/workflows/composer.yml) [![Latest Stable Version](https://poser.pugx.org/cmatosbc/ananke/v)](https://packagist.org/packages/cmatosbc/ananke) [![License](https://poser.pugx.org/cmatosbc/ananke/license)](https://packagist.org/packages/cmatosbc/ananke)
 
 A flexible PHP service container that supports conditional service instantiation. This package allows you to register services with multiple conditions that must be met before the service can be instantiated.
 
@@ -128,6 +128,29 @@ $factory->registerCondition('can-write-db',
     new AndCondition([
         new CallableCondition('is-connected', fn() => $db->isConnected()),
         new CallableCondition('has-permissions', fn() => $user->canWrite())
+    ]));
+```
+
+### XOR/NOR Conditions
+
+For more complex logical operations, you can use XOR (exclusive OR) and NOR conditions:
+
+```php
+use Ananke\Conditions\{XorCondition, NorCondition};
+
+// XOR: Feature must be enabled in EXACTLY one environment (dev XOR prod)
+$factory->registerCondition('feature-enabled-single-env',
+    new XorCondition([
+        new CallableCondition('dev-enabled', fn() => $featureFlags->isEnabled('dev')),
+        new CallableCondition('prod-enabled', fn() => $featureFlags->isEnabled('prod'))
+    ]));
+
+// NOR: Service is available only when NONE of the maintenance modes are active
+$factory->registerCondition('all-systems-available',
+    new NorCondition([
+        new CallableCondition('db-maintenance', fn() => $maintenance->isDatabaseMaintenance()),
+        new CallableCondition('api-maintenance', fn() => $maintenance->isApiMaintenance()),
+        new CallableCondition('ui-maintenance', fn() => $maintenance->isUiMaintenance())
     ]));
 ```
 
