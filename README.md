@@ -2,7 +2,7 @@
 
 [![PHP Lint](https://github.com/cmatosbc/ananke/actions/workflows/lint.yml/badge.svg)](https://github.com/cmatosbc/ananke/actions/workflows/lint.yml) [![PHPUnit Tests](https://github.com/cmatosbc/ananke/actions/workflows/phpunit.yml/badge.svg)](https://github.com/cmatosbc/ananke/actions/workflows/phpunit.yml) [![PHP Composer](https://github.com/cmatosbc/ananke/actions/workflows/composer.yml/badge.svg)](https://github.com/cmatosbc/ananke/actions/workflows/composer.yml) [![Latest Stable Version](https://poser.pugx.org/cmatosbc/ananke/v)](https://packagist.org/packages/cmatosbc/ananke) [![License](https://poser.pugx.org/cmatosbc/ananke/license)](https://packagist.org/packages/cmatosbc/ananke)
 
-A flexible PHP service container that supports conditional service instantiation. This package allows you to register services with multiple conditions that must be met before the service can be instantiated.
+A flexible PHP 8+ service container that supports conditional service instantiation. This package allows you to register services with multiple conditions that must be met before the service can be instantiated.
 
 ## Requirements
 
