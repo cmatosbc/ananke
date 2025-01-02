@@ -186,9 +186,88 @@ $factory->registerCondition('cached-access-check',
         300 // Cache for 5 minutes
     )
 );
+
+## Service Types
+
+Ananke supports two types of service instantiation: Singleton and Prototype.
+
+### Singleton Services
+
+Singleton services are instantiated only once and the same instance is returned for subsequent requests. This is useful for services that maintain state or are resource-intensive to create.
+
+```php
+use Ananke\ServiceFactory;
+
+$factory = new ServiceFactory();
+
+// Register a service as singleton
+$factory->register('database', DatabaseConnection::class);
+$factory->registerAsSingleton('database');
+
+// Both variables will reference the same instance
+$db1 = $factory->create('database');
+$db2 = $factory->create('database');
+
+assert($db1 === $db2); // true
 ```
 
-### Best Practices
+You can also clear singleton instances when needed:
+
+```php
+// Clear all singleton instances
+$factory->clearSingletons();
+
+// Now you'll get a new instance
+$db3 = $factory->create('database');
+assert($db3 !== $db1); // true
+```
+
+### Prototype Services
+
+Prototype services create a new instance every time they are requested. This is the default behavior and is ideal for services that should not share state.
+
+```php
+use Ananke\ServiceFactory;
+
+$factory = new ServiceFactory();
+
+// Register a service (prototype by default)
+$factory->register('transaction', Transaction::class);
+
+// Or explicitly register as prototype
+$factory->registerAsPrototype('transaction');
+
+// Each call creates a new instance
+$tx1 = $factory->create('transaction');
+$tx2 = $factory->create('transaction');
+
+assert($tx1 !== $tx2); // true
+```
+
+### Changing Service Types
+
+You can change a service's type after registration:
+
+```php
+use Ananke\ServiceFactory;
+
+$factory = new ServiceFactory();
+$factory->register('cache', CacheService::class);
+
+// Start as singleton
+$factory->changeServiceType('cache', 'singleton');
+$cache1 = $factory->create('cache');
+$cache2 = $factory->create('cache');
+assert($cache1 === $cache2); // true
+
+// Switch to prototype
+$factory->changeServiceType('cache', 'prototype');
+$cache3 = $factory->create('cache');
+$cache4 = $factory->create('cache');
+assert($cache3 !== $cache4); // true
+```
+
+## Best Practices
 
 1. **Caching**: Use `CachedCondition` for:
    - External API calls

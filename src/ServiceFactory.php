@@ -6,6 +6,9 @@ use Ananke\Exceptions\ServiceNotFoundException;
 use Ananke\Exceptions\ClassNotFoundException;
 use Ananke\Conditions\ConditionInterface;
 use Ananke\Conditions\CallableCondition;
+use Ananke\Traits\SingletonServiceTrait;
+use Ananke\Traits\PrototypeServiceTrait;
+use Ananke\Traits\ServiceTypeTrait;
 
 /**
  * A flexible service container that supports conditional service instantiation.
@@ -16,6 +19,10 @@ use Ananke\Conditions\CallableCondition;
  */
 class ServiceFactory
 {
+    use ServiceTypeTrait;
+    use SingletonServiceTrait;
+    use PrototypeServiceTrait;
+    
     /** @var array<string, string> Service name to class name mapping */
     private array $services = [];
 
@@ -34,16 +41,22 @@ class ServiceFactory
      * @param string $serviceName Unique identifier for the service
      * @param string $className Fully qualified class name that exists
      * @param array $parameters Optional constructor parameters for the service
+     * @param string $type Service type (singleton or prototype)
      * @throws ClassNotFoundException When the class does not exist
      */
-    public function register(string $serviceName, string $className, array $parameters = []): void
-    {
+    public function register(
+        string $serviceName, 
+        string $className, 
+        array $parameters = [],
+        string $type = 'prototype'
+    ): void {
         if (!class_exists($className)) {
             throw new ClassNotFoundException("Class not found: $className");
         }
 
         $this->services[$serviceName] = $className;
         $this->parameters[$serviceName] = $parameters;
+        $this->setServiceType($serviceName, $type);
     }
 
     /**
@@ -135,6 +148,24 @@ class ServiceFactory
             // Any failed condition will throw an exception
         }
 
+        if ($this->isSingleton($serviceName)) {
+            if (!isset($this->singletons[$serviceName])) {
+                $this->singletons[$serviceName] = $this->createInstance($serviceName);
+            }
+            return $this->singletons[$serviceName];
+        }
+
+        return $this->createInstance($serviceName);
+    }
+
+    /**
+     * Create a new instance of a service
+     *
+     * @param string $serviceName Name of the service
+     * @return object
+     */
+    private function createInstance(string $serviceName): object
+    {
         $className = $this->services[$serviceName];
         return new $className(...($this->parameters[$serviceName] ?? []));
     }
@@ -161,6 +192,26 @@ class ServiceFactory
             return true;
         } catch (\InvalidArgumentException $e) {
             return false;
+        }
+    }
+
+    /**
+     * Set the service type during registration
+     *
+     * @param string $serviceName Name of the service
+     * @param string $type Service type (singleton or prototype)
+     * @throws \InvalidArgumentException When invalid type is provided
+     */
+    private function setServiceType(string $serviceName, string $type): void
+    {
+        if (!in_array($type, ['singleton', 'prototype'])) {
+            throw new \InvalidArgumentException("Invalid service type: $type");
+        }
+
+        if ($type === 'singleton') {
+            $this->registerAsSingleton($serviceName);
+        } else {
+            $this->registerAsPrototype($serviceName);
         }
     }
 }
