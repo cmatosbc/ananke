@@ -186,6 +186,7 @@ $factory->registerCondition('cached-access-check',
         300 // Cache for 5 minutes
     )
 );
+```
 
 ## Service Types
 
