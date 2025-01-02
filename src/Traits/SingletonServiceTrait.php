@@ -43,7 +43,7 @@ trait SingletonServiceTrait
         if (!isset($this->singletons[$serviceName])) {
             $this->singletons[$serviceName] = $factory();
         }
-        
+
         return $this->singletons[$serviceName];
     }
 

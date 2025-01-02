@@ -22,7 +22,7 @@ class ServiceFactory
     use ServiceTypeTrait;
     use SingletonServiceTrait;
     use PrototypeServiceTrait;
-    
+
     /** @var array<string, string> Service name to class name mapping */
     private array $services = [];
 
@@ -45,8 +45,8 @@ class ServiceFactory
      * @throws ClassNotFoundException When the class does not exist
      */
     public function register(
-        string $serviceName, 
-        string $className, 
+        string $serviceName,
+        string $className,
         array $parameters = [],
         string $type = 'prototype'
     ): void {
